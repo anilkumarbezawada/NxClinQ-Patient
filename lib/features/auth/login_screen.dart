@@ -71,13 +71,29 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final email = _emailCtrl.text.trim().toLowerCase();
+    final password = _passCtrl.text;
+
+    // ── Static organiser admin — no API call ─────────────────────────────────
+    if (email == 'admin@thoughtgreenhealth.com' && password == 'Admin@1234') {
+      setState(() => _isLoading = true);
+      final auth = context.read<AuthProvider>();
+      await auth.loginAsOrgAdmin(email); // sets state + prefs, no network
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      context.go('/org/dashboard');
+      return;
+    }
+
+    // ── Real API login for all other credentials ──────────────────────────────
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     final auth = context.read<AuthProvider>();
-    final error = await auth.login(_emailCtrl.text, _passCtrl.text);
+    final error = await auth.login(email, password);
 
     if (!mounted) return;
     setState(() => _isLoading = false);

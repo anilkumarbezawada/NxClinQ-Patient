@@ -50,7 +50,62 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Static organiser admin credentials (demo/dev only) ─────────────────────
+  static const _kOrgAdminEmail = 'admin@thoughtgreenhealth.com';
+  static const _kOrgAdminPassword = 'Admin@1234';
+
+  static final Map<String, dynamic> _orgAdminStaticData = {
+    'access_token': 'static_org_admin_token',
+    'access_token_expires_at': '2099-01-01T00:00:00Z',
+    'refresh_token': 'static_org_admin_refresh',
+    'refresh_token_expires_at': '2099-01-01T00:00:00Z',
+    'csrf_token': 'static_csrf',
+    'active_device_count': 1,
+    'requires_clinic_selection': false,
+    'user': {
+      'id': 'org-admin-static-001',
+      'role': 'organiser_admin',
+      'clinic_memberships': [],
+      'active_clinic_id': null,
+    },
+  };
+
+  /// Called directly from the login screen for static org admin credentials.
+  /// Sets auth state and persists to SharedPreferences — no network call made.
+  Future<void> loginAsOrgAdmin(String email) async {
+    _authData = AuthData.fromJson(_orgAdminStaticData);
+    _authResponseData = _orgAdminStaticData;
+    _userEmail = email;
+    _isLoggedIn = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kIsLoggedIn, true);
+    await prefs.setString(_kUserEmail, _userEmail);
+    await prefs.setString(_kAuthResponse, jsonEncode(_orgAdminStaticData));
+
+    notifyListeners();
+  }
+
   Future<String?> login(String identifier, String password) async {
+    final email = identifier.trim().toLowerCase();
+
+    // Static bypass: organiser admin credentials never hit the real API
+    if (email == _kOrgAdminEmail && password == _kOrgAdminPassword) {
+      _authData = AuthData.fromJson(_orgAdminStaticData);
+      _authResponseData = _orgAdminStaticData;
+      _userEmail = email;
+      _isLoggedIn = true;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kIsLoggedIn, true);
+      await prefs.setString(_kUserEmail, _userEmail);
+      await prefs.setString(_kAuthResponse, jsonEncode(_orgAdminStaticData));
+
+      notifyListeners();
+      return null;
+    }
+
+    // All other credentials → real API
     try {
       final result = await AuthService.instance.login(
         LoginRequest(identifier: identifier, password: password),
@@ -58,7 +113,7 @@ class AuthProvider extends ChangeNotifier {
 
       _authData = result.authData;
       _authResponseData = result.rawData;
-      _userEmail = identifier.trim().toLowerCase();
+      _userEmail = email;
       _isLoggedIn = true;
 
       final prefs = await SharedPreferences.getInstance();
