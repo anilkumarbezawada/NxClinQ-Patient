@@ -50,9 +50,11 @@ class ApiClient {
         final statusCode = error.response?.statusCode;
         final errorCode = _extractErrorCode(error.response?.data);
 
-        final is401 = statusCode == 401 || errorCode == 'AUTH_UNAUTHORIZED';
-        final isRefreshEndpoint = error.requestOptions.path == ApiConstants.refreshToken;
         final isLoginEndpoint = error.requestOptions.path == ApiConstants.login;
+        // Don't intercept 401s on the login endpoint itself; let them fail through
+        // so the UI can show "Invalid credentials"
+        final is401 = statusCode == 401 || errorCode == 'AUTH_UNAUTHORIZED' || errorCode == 'UNAUTHORIZED';
+        final isRefreshEndpoint = error.requestOptions.path == ApiConstants.refreshToken;
 
         if (is401 && !isRefreshEndpoint && !isLoginEndpoint) {
           final refreshed = await _tryRefreshTokens();
@@ -146,6 +148,26 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    await NetworkChecker.assertConnected();
+    try {
+      final response = await _dio.patch<Map<String, dynamic>>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+      return response.data ?? {};
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, dynamic>? queryParameters,
@@ -205,14 +227,20 @@ class ApiClient {
       case DioExceptionType.badResponse:
         final responseData = e.response?.data;
         if (responseData is Map<String, dynamic>) {
-          final errorBody = responseData['error'];
-          if (errorBody is Map<String, dynamic>) {
+          if (responseData.containsKey('error') && responseData['error'] is Map<String, dynamic>) {
+            final errorBody = responseData['error'] as Map<String, dynamic>;
             return ApiException.fromApiError(
               code: errorBody['code'] as String? ?? 'SERVER_ERROR',
               message: errorBody['message'] as String? ?? 'An error occurred.',
               statusCode: e.response?.statusCode,
             );
           }
+          // Fallback for flat structure
+          return ApiException.fromApiError(
+            code: responseData['code'] as String? ?? 'SERVER_ERROR',
+            message: responseData['message'] as String? ?? 'An error occurred.',
+            statusCode: e.response?.statusCode,
+          );
         }
         return ApiException.serverError(
           'Server responded with status ${e.response?.statusCode}',

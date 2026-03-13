@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../auth/auth_provider.dart';
@@ -346,10 +345,7 @@ class ProfileScreen extends StatelessWidget {
           SizedBox(
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () {
-                context.read<AuthProvider>().logout();
-                context.go('/login');
-              },
+              onPressed: () => _confirmLogout(context, auth),
               icon: const Icon(Icons.logout_rounded),
               label: const Text('Sign Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
@@ -378,6 +374,44 @@ class ProfileScreen extends StatelessWidget {
       case 'doctor':       return '✦ Doctor';
       case 'patient':      return '✦ Patient';
       default:             return role.isNotEmpty ? '✦ ${role.replaceAll('_', ' ')}' : '✦ Staff';
+    }
+  }
+
+  Future<void> _confirmLogout(BuildContext context, AuthProvider auth) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
+          titlePadding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+          title: const Text('Log Out?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+          content: const Text(
+            'Are you sure you want to log out?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text('Log Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirm == true && context.mounted) {
+      await auth.logout();
     }
   }
 }

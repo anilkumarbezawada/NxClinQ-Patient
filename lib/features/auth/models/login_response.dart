@@ -27,13 +27,16 @@ class AuthData {
   });
 
   factory AuthData.fromJson(Map<String, dynamic> json) {
+    final tokens = json['tokens'] as Map<String, dynamic>?;
+    final userJson = json['principal'] as Map<String, dynamic>? ?? json['user'] as Map<String, dynamic>? ?? {};
+
     return AuthData(
-      accessToken: json['access_token'] as String? ?? '',
+      accessToken: tokens?['access_token'] as String? ?? json['access_token'] as String? ?? '',
       accessTokenExpiresAt: json['access_token_expires_at'] as String? ?? '',
-      refreshToken: json['refresh_token'] as String? ?? '',
+      refreshToken: tokens?['refresh_token'] as String? ?? json['refresh_token'] as String? ?? '',
       refreshTokenExpiresAt: json['refresh_token_expires_at'] as String? ?? '',
       csrfToken: json['csrf_token'] as String? ?? '',
-      user: UserData.fromJson(json['user'] as Map<String, dynamic>? ?? {}),
+      user: UserData.fromJson(userJson),
       activeDeviceCount: json['active_device_count'] as int? ?? 0,
       requiresClinicSelection: json['requires_clinic_selection'] as bool? ?? false,
     );
@@ -45,12 +48,18 @@ class AuthData {
 class UserData {
   final String id;
   final String role;
+  final String? email;
+  final String? orgId;
+  final String? sessionId;
   final List<ClinicMembership> clinicMemberships;
   final String? activeClinicId;
 
   const UserData({
     required this.id,
     required this.role,
+    this.email,
+    this.orgId,
+    this.sessionId,
     required this.clinicMemberships,
     this.activeClinicId,
   });
@@ -61,8 +70,11 @@ class UserData {
         .toList();
 
     return UserData(
-      id: json['id'] as String? ?? '',
+      id: json['user_id'] as String? ?? json['id'] as String? ?? '',
       role: json['role'] as String? ?? '',
+      email: json['email'] as String?,
+      orgId: json['org_id'] as String?,
+      sessionId: json['session_id'] as String?,
       clinicMemberships: memberships,
       activeClinicId: json['active_clinic_id'] as String?,
     );

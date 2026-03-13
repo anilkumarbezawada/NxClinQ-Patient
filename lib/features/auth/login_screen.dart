@@ -75,18 +75,6 @@ class _LoginScreenState extends State<LoginScreen>
     final email = _emailCtrl.text.trim().toLowerCase();
     final password = _passCtrl.text;
 
-    // ── Static organiser admin — no API call ─────────────────────────────────
-    if (email == 'admin@thoughtgreenhealth.com' && password == 'Admin@1234') {
-      setState(() => _isLoading = true);
-      final auth = context.read<AuthProvider>();
-      await auth.loginAsOrgAdmin(email); // sets state + prefs, no network
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      context.go('/org/dashboard');
-      return;
-    }
-
-    // ── Real API login for all other credentials ──────────────────────────────
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -101,7 +89,11 @@ class _LoginScreenState extends State<LoginScreen>
     if (error != null) {
       setState(() => _errorMessage = error);
     } else {
-      context.go('/admin/dashboard');
+      if (auth.userRole == 'org_admin') {
+        context.go('/org/dashboard');
+      } else {
+        context.go('/admin/dashboard');
+      }
     }
   }
 
@@ -373,7 +365,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Required';
-              if (v.length < 4) return 'Too short';
+              if (v.length < 8) return 'Password must be at least 8 characters';
               return null;
             },
           ),

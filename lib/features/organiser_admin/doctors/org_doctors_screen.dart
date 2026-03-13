@@ -1,147 +1,182 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/network/api_service.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/shimmer_loading.dart';
+import '../models/doctor_list_response.dart';
 
-class OrgDoctorsScreen extends StatelessWidget {
+class OrgDoctorsScreen extends StatefulWidget {
   const OrgDoctorsScreen({super.key});
 
-  static const List<_DoctorData> _doctors = [
-    _DoctorData(
-      name: 'Dr. Priya Sharma',
-      specialty: 'Cardiology',
-      clinic: 'City Care Clinic',
-      phone: '+91 98765 43210',
-      calendarSet: true,
-    ),
-    _DoctorData(
-      name: 'Dr. Arjun Mehta',
-      specialty: 'Orthopaedics',
-      clinic: 'Sunrise Hospital',
-      phone: '+91 87654 32109',
-      calendarSet: true,
-    ),
-    _DoctorData(
-      name: 'Dr. Kavya Nair',
-      specialty: 'Neurology',
-      clinic: 'Green Health Centre',
-      phone: '+91 76543 21098',
-      calendarSet: false,
-    ),
-    _DoctorData(
-      name: 'Dr. Rohan Das',
-      specialty: 'Dermatology',
-      clinic: 'MedPlus Wellness',
-      phone: '+91 65432 10987',
-      calendarSet: false,
-    ),
-    _DoctorData(
-      name: 'Dr. Anjali Reddy',
-      specialty: 'Gynaecology',
-      clinic: 'Apollo Wellness Hub',
-      phone: '+91 54321 09876',
-      calendarSet: true,
-    ),
-  ];
+  @override
+  State<OrgDoctorsScreen> createState() => _OrgDoctorsScreenState();
+}
+
+class _OrgDoctorsScreenState extends State<OrgDoctorsScreen> {
+  late Future<DoctorListResponse> _doctorsFuture;
+  bool _isFetching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    if (_isFetching) return;
+    _isFetching = true;
+    try {
+      final future = ApiService.instance.getDoctors();
+      setState(() {
+        _doctorsFuture = future;
+      });
+      await future;
+    } catch (e) {
+      if (!mounted) return;
+      final errorString = e is ApiException ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorString),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFetching = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final themeProvider = context.watch<ThemeProvider>();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            toolbarHeight: 64,
-            backgroundColor: const Color(0xFF7C3AED),
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF5B21B6), Color(0xFF7C3AED)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Doctors',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
-                ),
-                Text(
-                  '${_doctors.length} doctors registered in your organisation',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/org/doctors/add'),
-                  icon: const Icon(Icons.person_add_rounded, size: 16),
-                  label: const Text('Add Doctor'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF7C3AED),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            ],
-            elevation: 0,
-          ),
+      body: FutureBuilder<DoctorListResponse>(
+        future: _doctorsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return const CardShimmerLayout(itemCount: 6);
+          }
 
-          // Summary strip
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  _SummaryChip(
-                    label: 'Calendar Set',
-                    count: _doctors.where((d) => d.calendarSet).length,
-                    color: AppColors.success,
+          final doctors = snapshot.data?.data ?? [];
+
+          return NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  pinned: true,
+                  toolbarHeight: 64,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.getPrimaryGradient(themeProvider.seedColor),
+                    ),
                   ),
-                  const SizedBox(width: 10),
-                  _SummaryChip(
-                    label: 'Pending Calendar',
-                    count: _doctors.where((d) => !d.calendarSet).length,
-                    color: Colors.orange,
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Doctors',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        '${doctors.length} doctors registered in your organisation',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
                   ),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          await context.push('/org/doctors/add');
+                          _fetchData();
+                        },
+                        icon: const Icon(Icons.person_add_rounded, size: 16),
+                        label: const Text('New Doctor'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: themeProvider.seedColor,
+                          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                  elevation: 0,
+                ),
+              ];
+            },
+            body: RefreshIndicator(
+              onRefresh: _fetchData,
+              color: const Color(0xFF0EA5E9),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  if (doctors.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/images/doctor.png',
+                              width: 160,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.medical_information_rounded, size: 64, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No doctors were found.',
+                              style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _DoctorCard(
+                            doctor: doctors[index],
+                            onRefresh: _fetchData,
+                          ),
+                          childCount: doctors.length,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _DoctorCard(doctor: _doctors[index]),
-                childCount: _doctors.length,
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/org/doctors/add'),
-        backgroundColor: const Color(0xFF7C3AED),
+        onPressed: () async {
+          await context.push('/org/doctors/add');
+          _fetchData();
+        },
+        backgroundColor: const Color(0xFF0EA5E9),
         icon: const Icon(Icons.person_add_rounded, color: Colors.white),
         label: const Text('Add Doctor', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         elevation: 4,
@@ -150,147 +185,259 @@ class OrgDoctorsScreen extends StatelessWidget {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-  const _SummaryChip({required this.label, required this.count, required this.color});
+class _DoctorCard extends StatelessWidget {
+  final DoctorModel doctor;
+  final VoidCallback onRefresh;
+  const _DoctorCard({required this.doctor, required this.onRefresh});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        '$label: $count',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+  void _showDoctorDetails(BuildContext context, ThemeProvider themeProvider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.brightness == Brightness.dark ? theme.colorScheme.surface : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: AppColors.getPrimaryGradient(themeProvider.seedColor),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: themeProvider.seedColor.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    doctor.fullName.isNotEmpty ? doctor.fullName[0].toUpperCase() : 'D',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                doctor.fullName,
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                textAlign: TextAlign.center,
+              ),
+              if (doctor.title != null && doctor.title!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    doctor.title!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: themeProvider.seedColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              _buildDetailRow(context, Icons.medical_services_rounded, 'Specialty', doctor.specialty ?? 'Not specified'),
+              _buildDetailRow(context, Icons.school_rounded, 'Qualification', doctor.qualification ?? 'Not specified'),
+              _buildDetailRow(context, Icons.work_history_rounded, 'Experience', doctor.experience ?? 'Not specified'),
+              _buildDetailRow(context, Icons.phone_rounded, 'Phone', doctor.phone ?? 'Not specified'),
+              if (doctor.description != null && doctor.description!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'About',
+                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    doctor.description!,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    final themeProvider = context.watch<ThemeProvider>();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: themeProvider.seedColor.withValues(alpha: 0.7)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
-}
-
-class _DoctorCard extends StatelessWidget {
-  final _DoctorData doctor;
-  const _DoctorCard({required this.doctor});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final themeProvider = context.watch<ThemeProvider>();
+
+    IconData genderIcon = Icons.person_rounded;
+    if (doctor.gender?.toLowerCase() == 'male') genderIcon = Icons.male_rounded;
+    if (doctor.gender?.toLowerCase() == 'female') genderIcon = Icons.female_rounded;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerTheme.color ?? Colors.grey.shade200),
-        boxShadow: [
+        color: theme.brightness == Brightness.dark 
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: theme.brightness == Brightness.light ? [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: themeProvider.seedColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
-        ],
+        ] : null,
+        border: Border.all(
+          color: themeProvider.seedColor.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            // Avatar
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF5B21B6), Color(0xFF7C3AED)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(
-                  doctor.name.split(' ').length > 1
-                      ? doctor.name.split(' ')[1][0].toUpperCase()
-                      : doctor.name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    doctor.name,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${doctor.specialty} · ${doctor.clinic}',
-                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: doctor.calendarSet
-                              ? AppColors.success.withValues(alpha: 0.1)
-                              : Colors.orange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          doctor.calendarSet ? '● Calendar Set' : '● Set Calendar',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: doctor.calendarSet ? AppColors.success : Colors.orange,
-                          ),
-                        ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _showDoctorDetails(context, themeProvider),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Avatar
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.getPrimaryGradient(themeProvider.seedColor),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: themeProvider.seedColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                ],
-              ),
+                  child: Center(
+                    child: Text(
+                      doctor.fullName.isNotEmpty ? doctor.fullName[0].toUpperCase() : 'D',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              doctor.fullName,
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 16),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Icon(genderIcon, size: 16, color: themeProvider.seedColor.withValues(alpha: 0.7)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        doctor.specialty ?? 'General Physician',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: themeProvider.seedColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.work_history_rounded, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                          const SizedBox(width: 4),
+                          Text(
+                            doctor.experience ?? 'Not specified',
+                            style: TextStyle(
+                              fontSize: 12, 
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+              ],
             ),
-            // Action
-            if (!doctor.calendarSet)
-              IconButton(
-                onPressed: () => context.push('/org/doctors/calendar'),
-                icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF7C3AED)),
-                tooltip: 'Set Calendar',
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _DoctorData {
-  final String name;
-  final String specialty;
-  final String clinic;
-  final String phone;
-  final bool calendarSet;
-  const _DoctorData({
-    required this.name,
-    required this.specialty,
-    required this.clinic,
-    required this.phone,
-    required this.calendarSet,
-  });
 }

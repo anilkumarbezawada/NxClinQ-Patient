@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/auth_provider.dart';
+import '../models/org_dashboard_response.dart';
+import '../../../core/network/api_service.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/shimmer_loading.dart';
 
 class OrgDashboardScreen extends StatefulWidget {
   const OrgDashboardScreen({super.key});
@@ -15,10 +20,13 @@ class _OrgDashboardScreenState extends State<OrgDashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   final List<Animation<double>> _cardAnims = [];
+  late Future<OrgDashboardResponse> _dashboardFuture;
+  bool _isFetching = false;
 
   @override
   void initState() {
     super.initState();
+    _fetchData();
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -34,6 +42,30 @@ class _OrgDashboardScreenState extends State<OrgDashboardScreen>
     _animController.forward();
   }
 
+  Future<void> _fetchData() async {
+    if (_isFetching) return;
+    _isFetching = true;
+    try {
+      final future = ApiService.instance.getOrgDashboardOverview();
+      setState(() {
+        _dashboardFuture = future;
+      });
+      await future;
+    } catch (e) {
+      if (!mounted) return;
+      final errorString = e is ApiException ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorString),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      _isFetching = false;
+    }
+  }
+
   @override
   void dispose() {
     _animController.dispose();
@@ -43,143 +75,169 @@ class _OrgDashboardScreenState extends State<OrgDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // App Bar
-          SliverAppBar(
-            pinned: true,
-            floating: false,
-            expandedHeight: 0,
-            toolbarHeight: 64,
-            backgroundColor: const Color(0xFF0EA5E9),
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0369A1), Color(0xFF0EA5E9)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Organisation Dashboard',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          fontSize: 18,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+      body: FutureBuilder<OrgDashboardResponse>(
+        future: _dashboardFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return const DashboardShimmerLayout();
+          }
+
+          final data = snapshot.data?.data;
+          final orgName = data?.orgName ?? 'Organisation Name';
+          final stats = data?.overview;
+
+          return NestedScrollView(
+            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+              return <Widget>[
+                // App Bar
+                SliverAppBar(
+                  pinned: true,
+                  floating: false,
+                  expandedHeight: 0,
+                  toolbarHeight: 64,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.getPrimaryGradient(themeProvider.seedColor),
                       ),
-                      Text(
-                        '✦ Organiser Administrator',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.4,
+                    ),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              orgName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                fontSize: 18,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '✦ Organiser Dashboard',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        child: Text(
+                          auth.userName.isNotEmpty ? auth.userName[0].toUpperCase() : 'O',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  elevation: 0,
+                ),
+              ];
+            },
+            body: RefreshIndicator(
+              onRefresh: _fetchData,
+              color: const Color(0xFF0EA5E9),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      // Welcome banner
+                      _WelcomeBanner(userName: auth.userName),
+                      const SizedBox(height: 24),
+
+                      // Stat cards
+                      _buildStatCards(context, stats),
+                      const SizedBox(height: 28),
+
+                      // Quick actions
+                      Text(
+                        'Quick Actions',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 14),
+                      _QuickActions(),
+                      const SizedBox(height: 28),
+
+                      // Recent clinics header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Recent Clinics',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/org/clinics'),
+                            child: const Text('View All'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _RecentClinicsList(
+                        clinics: stats?.clinics ?? [],
+                        onRefresh: _fetchData,
+                      ),
+                      const SizedBox(height: 24),
+                    ]),
+                  ),
                 ),
               ],
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  child: Text(
-                    auth.userName.isNotEmpty ? auth.userName[0].toUpperCase() : 'O',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            elevation: 0,
-          ),
-
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // Welcome banner
-                _WelcomeBanner(userName: auth.userName),
-                const SizedBox(height: 24),
-
-                // Stat cards
-                _buildStatCards(context),
-                const SizedBox(height: 28),
-
-                // Quick actions
-                Text(
-                  'Quick Actions',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 14),
-                _QuickActions(),
-                const SizedBox(height: 28),
-
-                // Recent clinics header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Recent Clinics',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go('/org/clinics'),
-                      child: const Text('View All'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _RecentClinicsList(),
-                const SizedBox(height: 24),
-              ]),
             ),
-          ),
-        ],
+          );
+      },
       ),
     );
   }
 
-  Widget _buildStatCards(BuildContext context) {
+  Widget _buildStatCards(BuildContext context, OrgOverview? stats) {
+    final clinicCount = stats?.clinics.length ?? 0;
+    final doctorCount = stats?.doctors.length ?? 0;
+
     final cards = [
       _StatCardData(
         icon: Icons.local_hospital_rounded,
         label: 'Total Clinics',
-        value: '8',
-        sub: '+2 this month',
+        value: clinicCount.toString(),
+        sub: 'Added to org',
         gradient: const [Color(0xFF0369A1), Color(0xFF0EA5E9)],
         onTap: () => context.go('/org/clinics'),
       ),
       _StatCardData(
         icon: Icons.medical_services_rounded,
         label: 'Total Doctors',
-        value: '34',
-        sub: '+5 this week',
+        value: doctorCount.toString(),
+        sub: 'Across clinics',
         gradient: const [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
         onTap: () => context.go('/org/doctors'),
       ),
@@ -357,16 +415,16 @@ class _StatCard extends StatelessWidget {
                     Text(
                       data.label,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       data.sub,
-                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -385,25 +443,25 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final actions = [
       _QuickAction(
-        label: 'Create\nClinic',
+        label: 'Create Clinic',
         icon: Icons.add_business_rounded,
         color: const Color(0xFF0EA5E9),
         onTap: () => context.push('/org/clinics/create'),
       ),
       _QuickAction(
-        label: 'Add\nDoctor',
+        label: 'Add Doctor',
         icon: Icons.person_add_rounded,
         color: const Color(0xFF8B5CF6),
         onTap: () => context.push('/org/doctors/add'),
       ),
       _QuickAction(
-        label: 'View\nClinics',
+        label: 'View Clinics',
         icon: Icons.local_hospital_rounded,
         color: AppColors.success,
         onTap: () => context.go('/org/clinics'),
       ),
       _QuickAction(
-        label: 'Org\nProfile',
+        label: 'Org Profile',
         icon: Icons.settings_rounded,
         color: AppColors.warning,
         onTap: () => context.go('/org/profile'),
@@ -428,13 +486,13 @@ class _QuickActions extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(a.icon, color: a.color, size: 24),
+                    Icon(a.icon, color: a.color, size: 28),
                     const SizedBox(height: 6),
                     Text(
                       a.label,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: a.color,
                       ),
@@ -451,74 +509,146 @@ class _QuickActions extends StatelessWidget {
 }
 
 class _RecentClinicsList extends StatelessWidget {
-  static const _clinics = [
-    _ClinicItem('City Care Clinic', 'Hyderabad', '6 Doctors', true),
-    _ClinicItem('Green Health Centre', 'Bangalore', '4 Doctors', true),
-    _ClinicItem('MedPlus Wellness', 'Chennai', '3 Doctors', false),
-  ];
+  final List<OrgClinic> clinics;
+  final VoidCallback onRefresh;
+  const _RecentClinicsList({required this.clinics, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
+    if (clinics.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/no_clinics.png',
+              width: 140,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.business_rounded, size: 64, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No clinics were created.',
+              style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show up to 3 most recent clinics (assuming API returns latest first, or just take first 3)
+    final displayList = clinics.take(3).toList();
+
     return Column(
-      children: _clinics.map((c) => _ClinicCard(item: c)).toList(),
+      children: displayList.map((c) => _ClinicCard(
+        item: c,
+        onRefresh: onRefresh,
+      )).toList(),
     );
   }
 }
 
 class _ClinicCard extends StatelessWidget {
-  final _ClinicItem item;
-  const _ClinicCard({required this.item});
+  final OrgClinic item;
+  final VoidCallback onRefresh;
+  const _ClinicCard({required this.item, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final themeProvider = context.watch<ThemeProvider>();
+
+    final doctorsCountStr = item.avalibleDoctors?.toString() ?? '0';
+    final doctorsCount = int.tryParse(doctorsCountStr) ?? 0;
+    final doctorText = doctorsCount == 0 ? 'No doctors' : '$doctorsCount Doctors';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.dividerTheme.color ?? Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.local_hospital_rounded, color: Color(0xFF0EA5E9), size: 22),
+        color: theme.brightness == Brightness.dark 
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: theme.brightness == Brightness.light ? [
+          BoxShadow(
+            color: themeProvider.seedColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ] : null,
+        border: Border.all(
+          color: themeProvider.seedColor.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header strip
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: themeProvider.seedColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
               children: [
-                Text(item.name, style: theme.textTheme.titleMedium?.copyWith(fontSize: 14)),
-                Text(
-                  '${item.location} · ${item.doctorCount}',
-                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.getPrimaryGradient(themeProvider.seedColor),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: themeProvider.seedColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.local_hospital_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.location_city_rounded, size: 14, color: themeProvider.seedColor.withValues(alpha: 0.8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.clinicLocation,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: themeProvider.seedColor,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.medical_services_rounded, size: 14, color: themeProvider.seedColor.withValues(alpha: 0.8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            doctorText,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: themeProvider.seedColor,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: item.isActive
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              item.isActive ? 'Active' : 'Pending',
-              style: TextStyle(
-                color: item.isActive ? AppColors.success : Colors.orange,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
         ],
@@ -551,13 +681,11 @@ class _QuickAction {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _QuickAction({required this.label, required this.icon, required this.color, required this.onTap});
-}
 
-class _ClinicItem {
-  final String name;
-  final String location;
-  final String doctorCount;
-  final bool isActive;
-  const _ClinicItem(this.name, this.location, this.doctorCount, this.isActive);
+  const _QuickAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 }

@@ -12,7 +12,7 @@ import '../../features/clinic_admin/doctors/add_doctor_screen.dart';
 import '../../features/clinic_admin/patients/patients_screen.dart';
 import '../../features/clinic_admin/patients/add_patient_screen.dart';
 import '../../features/clinic_admin/reports/reports_screen.dart';
-import '../../features/clinic_admin/profile/profile_screen.dart';
+import '../../features/clinic_admin/profile/clinic_profile_screen.dart';
 
 // ── Organiser Admin ───────────────────────────────────────────────────────────
 import '../../features/organiser_admin/shell/org_shell.dart';
@@ -23,6 +23,7 @@ import '../../features/organiser_admin/doctors/org_doctors_screen.dart';
 import '../../features/organiser_admin/doctors/add_org_doctor_screen.dart';
 import '../../features/organiser_admin/doctors/set_calendar_screen.dart';
 import '../../features/organiser_admin/profile/org_profile_screen.dart';
+import '../../features/organiser_admin/models/org_dashboard_response.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -47,19 +48,14 @@ GoRouter createRouter(AuthProvider authProvider) {
       // 2. If logged in, redirect away from splash/login based on role
       if (isLoggedIn && (isSplash || isLoggingIn)) {
         final role = authProvider.userRole;
-        // Temporary static demo: email admin@thoughtgreenhealth.com → org admin
-        final email = authProvider.userEmail;
-        final isOrgAdmin = role == 'organiser_admin' ||
-            email == 'admin@thoughtgreenhealth.com';
+        final isOrgAdmin = role == 'org_admin';
         return isOrgAdmin ? '/org/dashboard' : '/admin/dashboard';
       }
 
-      // 3. Protect /org/* routes — only organiser_admin may access them
+      // 3. Protect /org/* routes — only org_admin may access them
       if (isLoggedIn && loc.startsWith('/org')) {
         final role = authProvider.userRole;
-        final email = authProvider.userEmail;
-        final isOrgAdmin = role == 'organiser_admin' ||
-            email == 'admin@thoughtgreenhealth.com';
+        final isOrgAdmin = role == 'org_admin';
         if (!isOrgAdmin) return '/admin/dashboard';
       }
 
@@ -161,7 +157,10 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/org/clinics/create',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const CreateClinicScreen(),
+        builder: (context, state) {
+          final existingClinic = state.extra as OrgClinic?;
+          return CreateClinicScreen(existingClinic: existingClinic);
+        },
       ),
       GoRoute(
         path: '/org/doctors/add',
