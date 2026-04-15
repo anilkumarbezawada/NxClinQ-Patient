@@ -27,7 +27,6 @@ class _VitalsTrackingScreenState extends State<VitalsTrackingScreen> {
   final _notes = TextEditingController();
 
   List<VitalRecord> _history = <VitalRecord>[];
-  bool _loading = true;
   bool _saving = false;
 
   List<TextEditingController> get _all => [
@@ -67,12 +66,10 @@ class _VitalsTrackingScreenState extends State<VitalsTrackingScreen> {
   }
 
   Future<void> _loadHistory() async {
-    setState(() => _loading = true);
     final data = await _service.fetchVitalsHistory();
     if (!mounted) return;
     setState(() {
       _history = data;
-      _loading = false;
     });
   }
 
@@ -589,7 +586,7 @@ class _VitalsHistoryScreenState extends State<_VitalsHistoryScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _history.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(height: 14),
+        separatorBuilder: (context, index) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           if (index == 0) {
             return const _InfoCard(

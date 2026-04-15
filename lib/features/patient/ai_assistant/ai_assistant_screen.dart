@@ -54,7 +54,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
   // Speech to Text properties
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
-  double _speechLevel = 0;
 
   late AnimationController _pulseCtrl;
   late AnimationController _fadeCtrl;
@@ -117,7 +116,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
       if (status.isGranted) {
         setState(() {
           _isListening = true;
-          _speechLevel = 0;
         });
         await _speech.listen(
           onResult: (result) {
@@ -131,8 +129,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
             });
           },
           onSoundLevelChange: (level) {
-            if (!mounted) return;
-            setState(() => _speechLevel = level);
+            // Unused
           },
         );
       } else {
@@ -682,89 +679,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
     );
   }
 
-  Widget _buildSuggestionsState() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
-      child: Column(
-        children: [
-          // AI Greeting
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.06),
-                  AppColors.primaryDeep.withValues(alpha: 0.03),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.1)),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: Center(
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 38,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Hello! I\'m your AI Health Assistant',
-                  style: GoogleFonts.outfit(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMain,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Ask me anything about your appointment with Dr. ${_selectedAppointment?.doctorName ?? ''}',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Suggestion chips
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'SUGGESTED QUESTIONS',
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primaryDeep.withValues(alpha: 0.6),
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ..._suggestedQuestions.map((q) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _SuggestionChip(
-                  question: q,
-                  onTap: () => _sendMessage(q),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSuggestionsRow() {
     final shouldShow = _selectedEncounterId != null &&
         _textController.text.trim().isEmpty;
@@ -792,7 +706,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: _suggestedQuestions.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final question = _suggestedQuestions[index];
                   return GestureDetector(
@@ -1142,15 +1056,7 @@ class _AppointmentChip extends StatelessWidget {
     );
   }
 
-  IconData _specialtyIcon(String specialty) {
-    final s = specialty.toLowerCase();
-    if (s.contains('cardi')) return Icons.favorite_rounded;
-    if (s.contains('dermat')) return Icons.face_rounded;
-    if (s.contains('pediatr')) return Icons.child_care_rounded;
-    if (s.contains('neuro')) return Icons.psychology_rounded;
-    if (s.contains('ortho')) return Icons.accessibility_new_rounded;
-    return Icons.medical_services_rounded;
-  }
+
 }
 
 
@@ -1324,66 +1230,6 @@ class _TypingIndicatorState extends State<_TypingIndicator>
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Suggestion Chip
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _SuggestionChip extends StatelessWidget {
-  final String question;
-  final VoidCallback onTap;
-
-  const _SuggestionChip({required this.question, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.chat_bubble_outline_rounded,
-                  size: 16, color: AppColors.primary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                question,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textMain,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppColors.primary.withValues(alpha: 0.5)),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Animated Send Button
@@ -1402,8 +1248,6 @@ class _SendButton extends StatefulWidget {
 class _SendButtonState extends State<_SendButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _scale;
-
   @override
   void initState() {
     super.initState();
@@ -1414,7 +1258,6 @@ class _SendButtonState extends State<_SendButton>
       upperBound: 1.0,
     );
     _ctrl.value = 1.0;
-    _scale = _ctrl;
   }
 
   @override
