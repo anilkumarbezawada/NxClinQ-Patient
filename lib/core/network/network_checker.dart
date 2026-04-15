@@ -11,10 +11,12 @@ class NetworkChecker {
   /// Returns true if there's an active network connection.
   static Future<bool> hasInternet() async {
     final results = await _connectivity.checkConnectivity();
-    return results.any((r) =>
-        r == ConnectivityResult.mobile ||
-        r == ConnectivityResult.wifi ||
-        r == ConnectivityResult.ethernet);
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.ethernet,
+    );
   }
 
   /// Throws [ApiException.noInternet] if there's no connection.

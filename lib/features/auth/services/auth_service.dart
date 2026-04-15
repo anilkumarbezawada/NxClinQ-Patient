@@ -28,7 +28,9 @@ class AuthService {
     if (!response.success || response.data == null) {
       throw ApiException.fromApiError(
         code: response.error?.code ?? 'AUTH_ERROR',
-        message: response.error?.message ?? 'Login failed. Please check your credentials.',
+        message:
+            response.error?.message ??
+            'Login failed. Please check your credentials.',
       );
     }
 

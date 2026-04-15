@@ -28,17 +28,27 @@ class AuthData {
 
   factory AuthData.fromJson(Map<String, dynamic> json) {
     final tokens = json['tokens'] as Map<String, dynamic>?;
-    final userJson = json['principal'] as Map<String, dynamic>? ?? json['user'] as Map<String, dynamic>? ?? {};
+    final userJson =
+        json['principal'] as Map<String, dynamic>? ??
+        json['user'] as Map<String, dynamic>? ??
+        {};
 
     return AuthData(
-      accessToken: tokens?['access_token'] as String? ?? json['access_token'] as String? ?? '',
+      accessToken:
+          tokens?['access_token'] as String? ??
+          json['access_token'] as String? ??
+          '',
       accessTokenExpiresAt: json['access_token_expires_at'] as String? ?? '',
-      refreshToken: tokens?['refresh_token'] as String? ?? json['refresh_token'] as String? ?? '',
+      refreshToken:
+          tokens?['refresh_token'] as String? ??
+          json['refresh_token'] as String? ??
+          '',
       refreshTokenExpiresAt: json['refresh_token_expires_at'] as String? ?? '',
       csrfToken: json['csrf_token'] as String? ?? '',
       user: UserData.fromJson(userJson),
       activeDeviceCount: json['active_device_count'] as int? ?? 0,
-      requiresClinicSelection: json['requires_clinic_selection'] as bool? ?? false,
+      requiresClinicSelection:
+          json['requires_clinic_selection'] as bool? ?? false,
     );
   }
 }

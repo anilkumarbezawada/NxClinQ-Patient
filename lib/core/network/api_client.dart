@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'api_constants.dart';
 import 'api_exception.dart';
 import 'network_checker.dart';
@@ -11,37 +12,44 @@ class ApiClient {
   static final ApiClient instance = ApiClient._();
 
   VoidCallback? onForceLogout;
+  Future<bool>? _refreshFuture;
 
-  late final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ),
-  )
-    ..interceptors.add(_authInterceptor())
-    ..interceptors.add(
-      PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseBody: true,
-        responseHeader: false,
-        error: true,
-        compact: true,
-        maxWidth: 90,
-      ),
-    );
+  late final Dio _dio =
+      Dio(
+          BaseOptions(
+            baseUrl: ApiConstants.baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 30),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ApiConstants.internalApiKeyHeader: ApiConstants.internalApiKey,
+            },
+          ),
+        )
+        ..interceptors.add(_authInterceptor())
+        ..interceptors.add(
+          PrettyDioLogger(
+            requestHeader: true,
+            requestBody: true,
+            responseBody: true,
+            responseHeader: false,
+            error: true,
+            compact: true,
+            maxWidth: 90,
+          ),
+        );
 
   InterceptorsWrapper _authInterceptor() {
     return InterceptorsWrapper(
       onRequest: (options, handler) async {
+        // Ensure Internal API Key is always present
+        options.headers[ApiConstants.internalApiKeyHeader] =
+            ApiConstants.internalApiKey;
+
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('access_token');
-        if (token != null && token.isNotEmpty) {
+        if (token != null && token.isNotEmpty && !options.headers.containsKey('Authorization')) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
@@ -49,14 +57,21 @@ class ApiClient {
       onError: (error, handler) async {
         final statusCode = error.response?.statusCode;
         final errorCode = _extractErrorCode(error.response?.data);
+        final hasRetried =
+            error.requestOptions.extra['_retried_after_refresh'] == true;
 
-        final isLoginEndpoint = error.requestOptions.path == ApiConstants.login;
+        final isLoginEndpoint = error.requestOptions.path == ApiConstants.login ||
+            error.requestOptions.path == ApiConstants.patientLogin;
         // Don't intercept 401s on the login endpoint itself; let them fail through
         // so the UI can show "Invalid credentials"
-        final is401 = statusCode == 401 || errorCode == 'AUTH_UNAUTHORIZED' || errorCode == 'UNAUTHORIZED';
-        final isRefreshEndpoint = error.requestOptions.path == ApiConstants.refreshToken;
+        final is401 =
+            statusCode == 401 ||
+            errorCode == 'AUTH_UNAUTHORIZED' ||
+            errorCode == 'UNAUTHORIZED';
+        final isRefreshEndpoint =
+            error.requestOptions.path == ApiConstants.refreshToken;
 
-        if (is401 && !isRefreshEndpoint && !isLoginEndpoint) {
+        if (is401 && !isRefreshEndpoint && !isLoginEndpoint && !hasRetried) {
           final refreshed = await _tryRefreshTokens();
           if (refreshed) {
             final retryResponse = await _retry(error.requestOptions);
@@ -83,10 +98,18 @@ class ApiClient {
   }
 
   Future<bool> _tryRefreshTokens() async {
+    if (_refreshFuture != null) return _refreshFuture!;
+
+    final completer = Completer<bool>();
+    _refreshFuture = completer.future;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refresh_token');
-      if (refreshToken == null || refreshToken.isEmpty) return false;
+      if (refreshToken == null || refreshToken.isEmpty) {
+        completer.complete(false);
+        return false;
+      }
 
       final response = await _dio.post<Map<String, dynamic>>(
         ApiConstants.refreshToken,
@@ -94,20 +117,30 @@ class ApiClient {
       );
 
       final data = response.data?['data'] as Map<String, dynamic>?;
-      if (data == null) return false;
+      if (data == null) {
+        completer.complete(false);
+        return false;
+      }
 
       final newAccessToken = data['access_token'] as String?;
       final newRefreshToken = data['refresh_token'] as String?;
-      if (newAccessToken == null) return false;
+      if (newAccessToken == null) {
+        completer.complete(false);
+        return false;
+      }
 
       await prefs.setString('access_token', newAccessToken);
       if (newRefreshToken != null) {
         await prefs.setString('refresh_token', newRefreshToken);
       }
 
+      completer.complete(true);
       return true;
     } catch (_) {
+      completer.complete(false);
       return false;
+    } finally {
+      _refreshFuture = null;
     }
   }
 
@@ -123,6 +156,10 @@ class ApiClient {
         headers: {
           ...requestOptions.headers,
           if (token != null) 'Authorization': 'Bearer $token',
+        },
+        extra: {
+          ...requestOptions.extra,
+          '_retried_after_refresh': true,
         },
       ),
     );
@@ -190,10 +227,7 @@ class ApiClient {
   }) async {
     await NetworkChecker.assertConnected();
     try {
-      final response = await _dio.put<Map<String, dynamic>>(
-        path,
-        data: data,
-      );
+      final response = await _dio.put<Map<String, dynamic>>(path, data: data);
       return response.data ?? {};
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -227,7 +261,8 @@ class ApiClient {
       case DioExceptionType.badResponse:
         final responseData = e.response?.data;
         if (responseData is Map<String, dynamic>) {
-          if (responseData.containsKey('error') && responseData['error'] is Map<String, dynamic>) {
+          if (responseData.containsKey('error') &&
+              responseData['error'] is Map<String, dynamic>) {
             final errorBody = responseData['error'] as Map<String, dynamic>;
             return ApiException.fromApiError(
               code: errorBody['code'] as String? ?? 'SERVER_ERROR',

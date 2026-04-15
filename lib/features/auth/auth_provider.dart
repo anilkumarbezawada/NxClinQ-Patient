@@ -23,10 +23,15 @@ class AuthProvider extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   AuthData? get authData => _authData;
   String get userEmail => _userEmail;
-  String get userName => _deriveDisplayName(_userEmail.isNotEmpty ? _userEmail : (_authData?.user.id ?? ''));
+  String get userName => _deriveDisplayName(
+    _userEmail.isNotEmpty ? _userEmail : (_authData?.user.id ?? ''),
+  );
   String get userRole => _authData?.user.role ?? '';
   String get userId => _authData?.user.id ?? '';
-  String get activeClinicId => _authData?.user.activeClinicId ?? _authData?.user.activeClinic?.clinicId ?? '';
+  String get activeClinicId =>
+      _authData?.user.activeClinicId ??
+      _authData?.user.activeClinic?.clinicId ??
+      '';
   String get activeClinicName => _authData?.user.activeClinic?.clinicName ?? '';
   String get accessToken => _authData?.accessToken ?? '';
   Map<String, dynamic> get authResponseData => _authResponseData;
@@ -50,11 +55,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-
-
   Future<String?> login(String identifier, String password) async {
     final email = identifier.trim().toLowerCase();
-
 
     try {
       final result = await AuthService.instance.login(
@@ -83,7 +85,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout({bool silent = false}) async {
-    if (!silent && _authData?.refreshToken != null && _authData!.refreshToken.isNotEmpty) {
+    if (!silent &&
+        _authData?.refreshToken != null &&
+        _authData!.refreshToken.isNotEmpty) {
       await AuthService.instance.logout(_authData!.refreshToken);
     }
 
@@ -106,6 +110,8 @@ class AuthProvider extends ChangeNotifier {
   String _deriveDisplayName(String identifier) {
     if (!identifier.contains('@')) return identifier;
     final local = identifier.split('@').first;
-    return local.isNotEmpty ? '${local[0].toUpperCase()}${local.substring(1)}' : identifier;
+    return local.isNotEmpty
+        ? '${local[0].toUpperCase()}${local.substring(1)}'
+        : identifier;
   }
 }

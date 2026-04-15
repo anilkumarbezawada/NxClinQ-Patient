@@ -46,7 +46,8 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
               begin: const Alignment(-1.0, -0.3),
               end: const Alignment(1.0, 0.3),
               transform: _SlidingGradientTransform(
-                  slidePercent: _shimmerController.value),
+                slidePercent: _shimmerController.value,
+              ),
             ).createShader(bounds);
           },
           child: child,
@@ -107,6 +108,8 @@ class ListShimmerLayout extends StatelessWidget {
     return ShimmerLoading(
       child: ListView.separated(
         itemCount: itemCount,
+        shrinkWrap: true,
+        primary: false,
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -127,7 +130,7 @@ class ListShimmerLayout extends StatelessWidget {
                     const ShimmerBox(width: 100, height: 14),
                   ],
                 ),
-              )
+              ),
             ],
           );
         },
@@ -145,11 +148,17 @@ class CardShimmerLayout extends StatelessWidget {
     return ShimmerLoading(
       child: ListView.separated(
         itemCount: itemCount,
+        shrinkWrap: true,
+        primary: false,
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
-          return const ShimmerBox(width: double.infinity, height: 140, borderRadius: 16);
+          return const ShimmerBox(
+            width: double.infinity,
+            height: 140,
+            borderRadius: 16,
+          );
         },
       ),
     );
@@ -164,13 +173,19 @@ class DashboardShimmerLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShimmerLoading(
       child: ListView(
+        shrinkWrap: true,
+        primary: false,
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
           // Top large banner
-          const ShimmerBox(width: double.infinity, height: 180, borderRadius: 20),
+          const ShimmerBox(
+            width: double.infinity,
+            height: 180,
+            borderRadius: 20,
+          ),
           const SizedBox(height: 20),
-          
+
           // Small text lines
           const ShimmerBox(width: 140, height: 16),
           const SizedBox(height: 10),
@@ -192,7 +207,7 @@ class DashboardShimmerLayout extends StatelessWidget {
                     ShimmerBox(width: 120, height: 16),
                   ],
                 ),
-              )
+              ),
             ],
           ),
           const SizedBox(height: 30),
@@ -212,7 +227,7 @@ class DashboardShimmerLayout extends StatelessWidget {
                     ShimmerBox(width: 120, height: 16),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         ],

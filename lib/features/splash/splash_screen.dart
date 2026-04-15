@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -14,66 +13,75 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  
-  // Entrance animations
-  late AnimationController _entranceCtrl;
-  late Animation<double> _logoFade;
-  late Animation<Offset> _logoSlide;
-  late Animation<double> _titleFade;
-  late Animation<Offset> _titleSlide;
-  late Animation<double> _subFade;
-  late Animation<Offset> _subSlide;
-  
   // Background floating animation
   late AnimationController _bgCtrl;
+
+  // Text animations
+  late AnimationController _textCtrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _shimmerAnim;
+
+  // Subtitle animation
+  late Animation<double> _subFade;
+  late Animation<Offset> _subSlide;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Background Floating Animation
     _bgCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
 
-    // Staggered Entrance Animations
-    _entranceCtrl = AnimationController(
-      vsync: this, 
-      duration: const Duration(milliseconds: 2800), // Increased overall time
-    );
-        
-    // Logo comes in first 
-    _logoFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.0, 0.4, curve: Curves.easeOut)),
-    );
-    _logoSlide = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.0, 0.4, curve: Curves.easeOutCubic)),
+    // Text & Subtitle Animations
+    _textCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
     );
 
-    // Title comes in second (starts much later)
-    _titleFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.4, 0.7, curve: Curves.easeOut)),
-    );
-    _titleSlide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero).animate( // Slides from much lower
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.4, 0.7, curve: Curves.easeOutCubic)),
+    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _textCtrl,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+      ),
     );
 
-    // Subtitle comes in last (starts after title)
+    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _textCtrl,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+      ),
+    );
+
+    _shimmerAnim = Tween<double>(begin: -1, end: 2).animate(
+      CurvedAnimation(
+        parent: _textCtrl,
+        curve: const Interval(0.3, 0.8, curve: Curves.easeInOutSine),
+      ),
+    );
+
     _subFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.6, 1.0, curve: Curves.easeOut)),
-    );
-    _subSlide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero).animate( // Slides from much lower
-      CurvedAnimation(parent: _entranceCtrl, curve: const Interval(0.6, 1.0, curve: Curves.easeOutCubic)),
+      CurvedAnimation(
+        parent: _textCtrl,
+        curve: const Interval(0.5, 0.9, curve: Curves.easeOut),
+      ),
     );
 
-    // Start animations slightly after the first frame to prevent dropping beginning of animation
+    _subSlide = Tween<Offset>(begin: const Offset(0, 1.2), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _textCtrl,
+        curve: const Interval(0.5, 0.9, curve: Curves.easeOutCubic),
+      ),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 150), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted) {
-          _entranceCtrl.forward().then((_) {
-            // Route to login after animations finish, holding for a brief moment
-            Future.delayed(const Duration(milliseconds: 500), () {
+          _textCtrl.forward().then((_) {
+            Future.delayed(const Duration(milliseconds: 600), () {
               if (mounted) context.go('/login');
             });
           });
@@ -84,8 +92,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _entranceCtrl.dispose();
     _bgCtrl.dispose();
+    _textCtrl.dispose();
     super.dispose();
   }
 
@@ -94,10 +102,10 @@ class _SplashScreenState extends State<SplashScreen>
     final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight, // Soft white/violet bg
+      backgroundColor: AppColors.surface,
       body: Stack(
         children: [
-          // ── Floating Decorative Elements (Matching Login) ──
+          // ── Background Blobs ──
           AnimatedBuilder(
             animation: _bgCtrl,
             builder: (context, _) {
@@ -105,105 +113,102 @@ class _SplashScreenState extends State<SplashScreen>
               return Stack(
                 children: [
                   Positioned(
-                    top: -100 + 20 * math.sin(t * math.pi),
-                    right: -50 + 10 * math.cos(t * math.pi),
-                    child: _GlowCircle(
-                      size: 350,
-                      color: AppColors.primaryBrand.withValues(alpha: 0.25), // Increased stroke opacity
-                    ),
+                    top: -100 + 30 * math.sin(t * math.pi),
+                    right: -50 + 15 * math.cos(t * math.pi),
+                    child: _blob(350, AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   Positioned(
-                    bottom: size.height * 0.1 - 15 * math.sin(t * math.pi),
-                    left: -80 + 15 * math.cos(t * math.pi),
-                    child: _GlowCircle(
-                      size: 250,
-                      color: AppColors.primaryBrandLight.withValues(alpha: 0.25), // Increased stroke opacity
-                    ),
+                    bottom: size.height * 0.1 - 20 * math.sin(t * math.pi),
+                    left: -80 + 20 * math.cos(t * math.pi),
+                    child: _blob(280, AppColors.primaryLight.withValues(alpha: 0.35)),
+                  ),
+                  Positioned(
+                    top: size.height * 0.4 + 10 * math.cos(t * math.pi),
+                    right: -40 + 10 * math.sin(t * math.pi),
+                    child: _blob(150, AppColors.primaryDeep.withValues(alpha: 0.1)),
                   ),
                 ],
               );
             },
           ),
-          
+
           SafeArea(
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // ── Logo Animation ──
-                  FadeTransition(
-                    opacity: _logoFade,
-                    child: SlideTransition(
-                      position: _logoSlide,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.6), // Glass effect
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primaryBrandLight.withValues(alpha: 0.15),
-                              blurRadius: 40,
-                              spreadRadius: 10,
-                            ),
-                          ],
-                        ),
-                        // Removed padding so the logo can fill the circle
-                        child: Center(
-                          child: Transform.scale(
-                            scale: 4, // <--- Increases the size of the inner logo
-                            child: Lottie.asset(
-                              'assets/lottie/doctor_crm.json',
-                              fit: BoxFit.contain,
-                              animate: true,
-                              repeat: true,
+              child: AnimatedBuilder(
+                animation: _textCtrl,
+                builder: (context, child) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // ── Premium NxClinq Text ──
+                      FadeTransition(
+                        opacity: _fadeAnim,
+                        child: Transform.scale(
+                          scale: _scaleAnim.value,
+                          child: ShaderMask(
+                            blendMode: BlendMode.srcIn,
+                            shaderCallback: (bounds) {
+                              return LinearGradient(
+                                colors: const [
+                                  AppColors.primaryDeep,
+                                  AppColors.primary,
+                                  AppColors.white,
+                                  AppColors.primary,
+                                  AppColors.primaryDeep,
+                                ],
+                                stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+                                begin: Alignment(_shimmerAnim.value - 1, 0),
+                                end: Alignment(_shimmerAnim.value + 1, 0),
+                              ).createShader(bounds);
+                            },
+                            child: Text(
+                              'NxClinq',
+                              style: GoogleFonts.outfit(
+                                fontSize: 64,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -2.0,
+                                shadows: [
+                                  BoxShadow(
+                                    color: AppColors.primaryDeep.withValues(alpha: 0.3),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
 
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // ── Typography Title Animation ──
-                  FadeTransition(
-                    opacity: _titleFade,
-                    child: SlideTransition(
-                      position: _titleSlide,
-                      child: Text(
-                        'Doctor CRM',
-                        style: GoogleFonts.outfit(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimaryLight,
-                          letterSpacing: -1.2,
+                      const SizedBox(height: 16),
+
+                      // ── Subtitle ──
+                      FadeTransition(
+                        opacity: _subFade,
+                        child: SlideTransition(
+                          position: _subSlide,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.white.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.white),
+                            ),
+                            child: Text(
+                              'Your Health, Our Priority',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryDeep,
+                                letterSpacing: 2.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // ── Subtitle Animation ──
-                  FadeTransition(
-                    opacity: _subFade,
-                    child: SlideTransition(
-                      position: _subSlide,
-                      child: Text(
-                        'Healthcare Management Platform',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryBrand,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -211,27 +216,14 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
-}
 
-class _GlowCircle extends StatelessWidget {
-  final double size;
-  final Color color;
-  const _GlowCircle({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _blob(double size, Color color) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color,
-            blurRadius: 120, // Huge blur for smooth background blend
-            spreadRadius: 30,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color, blurRadius: 100, spreadRadius: 20)],
       ),
     );
   }

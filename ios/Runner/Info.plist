@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Doctor CRM</string>
+	<string>NxClinq</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>doctor_crm</string>
+	<string>NxClinq</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app needs calendar access to add your appointment to the device calendar.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>This app uses calendar event details when opening the native calendar screen.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to the microphone for AI Assistant voice questions.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app needs access to speech recognition for AI Assistant voice questions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

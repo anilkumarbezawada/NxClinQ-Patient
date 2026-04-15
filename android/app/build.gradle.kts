@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.app.doctor_crm"
+    namespace = "com.app.patient_crm"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.app.doctor_crm"
+        applicationId = "com.app.patient_crm"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

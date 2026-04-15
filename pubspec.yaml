@@ -1,5 +1,5 @@
-name: doctor_crm
-description: "Doctor CRM — Premium Clinic Management Application"
+name: patient_crm
+description: "NxClinQ — Premium Clinic Management Application"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -36,6 +36,9 @@ dependencies:
   dio: ^5.9.2
   connectivity_plus: ^7.0.0
   pretty_dio_logger: ^1.4.0
+  add_2_calendar: ^3.0.1
+  speech_to_text: ^7.3.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

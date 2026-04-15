@@ -1,0 +1,14 @@
+Analyzing doctor_schedule_config_screen.dart...
+
+warning - doctor_schedule_config_screen.dart:48:38 - Dead code. Try removing the code, or fixing the code before it so that it can be reached. - dead_code
+warning - doctor_schedule_config_screen.dart:48:41 - The left operand can't be null, so the right operand is never executed. Try removing the operator and the right operand. - dead_null_aware_expression
+warning - doctor_schedule_config_screen.dart:109:15 - The value of the local variable 'startDt' isn't used. Try removing the variable or using it. - unused_local_variable
+warning - doctor_schedule_config_screen.dart:110:15 - The value of the local variable 'endDt' isn't used. Try removing the variable or using it. - unused_local_variable
+warning - doctor_schedule_config_screen.dart:520:11 - A value for optional parameter 'isActive' isn't ever given. Try removing the unused parameter. - unused_element_parameter
+   info - doctor_schedule_config_screen.dart:352:15 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - doctor_schedule_config_screen.dart:391:32 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - doctor_schedule_config_screen.dart:392:24 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - doctor_schedule_config_screen.dart:437:32 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - doctor_schedule_config_screen.dart:438:24 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+10 issues found.

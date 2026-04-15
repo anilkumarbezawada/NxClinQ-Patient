@@ -1,41 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'core/router/app_router.dart';
-import 'core/theme/theme_provider.dart';
-import 'features/auth/auth_provider.dart';
+import 'core/router/patient_router.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/app_font_sizes.dart';
+import 'features/auth/patient_auth_provider.dart';
 
-class DoctorCrmApp extends StatefulWidget {
-  const DoctorCrmApp({super.key});
+class PatientCrmApp extends StatefulWidget {
+  const PatientCrmApp({super.key});
 
   @override
-  State<DoctorCrmApp> createState() => _DoctorCrmAppState();
+  State<PatientCrmApp> createState() => _PatientCrmAppState();
 }
 
-class _DoctorCrmAppState extends State<DoctorCrmApp> {
+class _PatientCrmAppState extends State<PatientCrmApp> {
   late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the router once, so hot-reloads and theme changes
-    // don't recreate GoRouter and cause GlobalKey duplicate errors.
-    final authProvider = context.read<AuthProvider>();
-    _router = createRouter(authProvider);
+    final authProvider = context.read<PatientAuthProvider>();
+    _router = createPatientRouter(authProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-
     return MaterialApp.router(
-      title: 'Doctor CRM',
+      title: 'NxClinq',
       debugShowCheckedModeBanner: false,
-      themeMode: themeProvider.themeMode,
-      theme: themeProvider.lightTheme,
-      darkTheme: themeProvider.darkTheme,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.linear(AppFontSizes.scaleFactor),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      theme: ThemeData(
+        fontFamily: 'Inter',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+        ),
+        scaffoldBackgroundColor: AppColors.surface,
+      ),
       routerConfig: _router,
     );
   }
 }
-

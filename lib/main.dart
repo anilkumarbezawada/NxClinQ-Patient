@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
-import 'core/theme/theme_provider.dart';
-import 'features/auth/auth_provider.dart';
+import 'features/auth/patient_auth_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DoctorCrmRoot());
+  runApp(const PatientCrmRoot());
 }
 
-class DoctorCrmRoot extends StatelessWidget {
-  const DoctorCrmRoot({super.key});
+class PatientCrmRoot extends StatelessWidget {
+  const PatientCrmRoot({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PatientAuthProvider()),
       ],
-      child: const DoctorCrmApp(),
+      child: const PatientCrmApp(),
     );
   }
 }
